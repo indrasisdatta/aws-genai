@@ -12,3 +12,4 @@ faiss-cpu
 google-generativeai
 langchain-google-genai
 # pdf2image
+boto3
