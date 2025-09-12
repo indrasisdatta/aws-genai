@@ -3,6 +3,7 @@ langchain >= 0.1.13
 langchain-community >= 0.0.20
 langchain-core
 langchain-groq
+langchain_huggingface
 ipykernel 
 python-dotenv 
 streamlit
@@ -13,3 +14,4 @@ google-generativeai
 langchain-google-genai
 # pdf2image
 boto3
+sentence-transformers

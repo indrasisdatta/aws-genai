@@ -1,12 +1,17 @@
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from PyPDF2 import PdfReader
 from langchain_google_genai import GoogleGenerativeAIEmbeddings, ChatGoogleGenerativeAI
+from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_community.vectorstores import FAISS
 from langchain.prompts import PromptTemplate
 from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 import streamlit as st
+import boto3 
+from botocore.exceptions import ClientError
 import os
+import mimetypes
+import tempfile
 
 def get_pdf_texts(pdf_docs):
     text = ""
@@ -22,10 +27,12 @@ def get_text_chunks(text):
     chunks = splitter.split_text(text)
     return chunks 
 
-def get_embedding(chunks):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
+def generate_embedding(chunks, session_id):
+    # embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     vector_store = FAISS.from_texts(chunks, embedding=embeddings)
-    vector_store.save_local('faiss_index')
+    vector_store.save_local(f"faiss_index/{session_id}")
+    upload_faiss_to_s3(f"faiss_index/{session_id}")
 
 def get_conversational_chain():
 
@@ -37,8 +44,6 @@ def get_conversational_chain():
     Answer:\n
     """
 
-    # model = ChatGoogleGenerativeAI(model="gemini-2.5-flash", temperature=0.3)
-
     model = ChatGroq(model="Gemma2-9b-It", groq_api_key=os.getenv('GROQ_API_KEY'))
 
     prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
@@ -48,10 +53,11 @@ def get_conversational_chain():
 
     return qa_chain
 
-
-def user_input(user_question):
-    embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
-    vector_store = FAISS.load_local('faiss_index', embeddings, allow_dangerous_deserialization=True)
+def user_input(user_question, session_id):
+    # embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
+    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    faiss_folder = download_faiss_from_s3(f"faiss_index/{session_id}")
+    vector_store = FAISS.load_local(faiss_folder, embeddings, allow_dangerous_deserialization=True)
     docs = vector_store.similarity_search(user_question)
 
     chain = get_conversational_chain()
@@ -63,3 +69,42 @@ def user_input(user_question):
     print(response)
 
     st.write("Reply: ", response['output_text'])
+
+def _get_session():
+    from streamlit.runtime import get_instance
+    from streamlit.runtime.scriptrunner import get_script_run_ctx
+    runtime = get_instance()
+    session_id = get_script_run_ctx().session_id
+    session_info = runtime._session_mgr.get_session_info(session_id)
+    if session_info is None:
+        raise RuntimeError("Couldn't get your Streamlit Session object.")
+    return session_info.session
+
+def upload_faiss_to_s3(folder):
+    bucket_name = os.getenv('AWS_S3_UPLOAD_BUCKET')
+    session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+    s3 = session.client('s3')
+
+    try:
+        for filename in os.listdir(folder):
+            local_path = os.path.join(folder, filename)
+            s3_key = f"{folder}/{filename}"
+            s3.upload_file(local_path, bucket_name, s3_key)
+    except ClientError as e:
+        print(e)
+        return False    
+    return True
+
+def download_faiss_from_s3(folder):
+    bucket_name = os.getenv('AWS_S3_UPLOAD_BUCKET')
+    session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+    s3 = session.client('s3')
+    tmp_dir = tempfile.mkdtemp()
+
+    for filename in ["index.faiss", "index.pkl"]:
+        s3_key = f"{folder}/{filename}"
+        local_path = os.path.join(tmp_dir, filename)
+        print("S3 download:", bucket_name, s3_key, "->", local_path)
+        s3.download_file(bucket_name, s3_key, local_path)
+
+    return os.path.join(folder, tmp_dir)

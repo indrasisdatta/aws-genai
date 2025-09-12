@@ -1,0 +1,22 @@
+
+AWS EC2 configuration:
+
+1) Using root, create a new policy for EC2 access and add it to "developer" user.
+2) Login as developer user and create a new EC2 instance.
+
+Security Group - check inbound and outbound rules 
+Inbound should have port 22 for SSH 
+
+VPC -> Subnet -> Route Table -> Security Group -> EC2 
+
+Issue: URL keeps loading 
+Fix: Add Security Group port 80 rule for inbound 
+
+Unable to open AWS instance connect as developer user but works as root. 
+Fix: Update policy:
+    "ec2:DescribeInstances",
+    "ec2-instance-connect:SendSSHPublicKey"
+
+SSH command to connect to AWS instance:
+ssh -i idatta.pub ec2-user@ec2-13-203-200-245.ap-south-1.compute.amazonaws.com
+
