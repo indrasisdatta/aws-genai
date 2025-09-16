@@ -12,6 +12,41 @@ from botocore.exceptions import ClientError
 import os
 import mimetypes
 import tempfile
+import logging
+import watchtower 
+import os 
+
+# CloudWatch Log initialize
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'), region_name="ap-south-1")
+client = session.client('logs')
+
+cloudwatch_handler = watchtower.CloudWatchLogHandler(
+    boto3_client=client,
+    log_group="Py-test",
+    stream_name="test"
+)
+logger.addHandler(cloudwatch_handler)
+
+logger.info("Test log message")
+
+# Save CloudWatch metrics
+def put_metric(name, value, unit="Count"):
+    # cloudwatch = boto3.client("cloudwatch")
+
+    session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'), region_name="ap-south-1")
+    cloudwatch = session.client('cloudwatch')
+
+    cloudwatch.put_metric_data(
+        Namespace="MultiPDFChatApp",
+        MetricData=[{
+            "MetricName": name,
+            "Value": value,
+            "Unit": unit
+        }]
+    )
 
 def get_pdf_texts(pdf_docs):
     text = ""
@@ -29,10 +64,15 @@ def get_text_chunks(text):
 
 def generate_embedding(chunks, session_id):
     # embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"}
+    )
     vector_store = FAISS.from_texts(chunks, embedding=embeddings)
     vector_store.save_local(f"faiss_index/{session_id}")
     upload_faiss_to_s3(f"faiss_index/{session_id}")
+
+    put_metric('Embeddings generated', 1)
 
 def get_conversational_chain():
 
@@ -54,8 +94,12 @@ def get_conversational_chain():
     return qa_chain
 
 def user_input(user_question, session_id):
+    put_metric('User queries entered', 1)
     # embeddings = GoogleGenerativeAIEmbeddings(model="models/embedding-001") 
-    embeddings = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+    embeddings = HuggingFaceEmbeddings(
+        model_name="sentence-transformers/all-MiniLM-L6-v2",
+        model_kwargs={"device": "cpu"}
+    )
     faiss_folder = download_faiss_from_s3(f"faiss_index/{session_id}")
     vector_store = FAISS.load_local(faiss_folder, embeddings, allow_dangerous_deserialization=True)
     docs = vector_store.similarity_search(user_question)
@@ -69,6 +113,8 @@ def user_input(user_question, session_id):
     print(response)
 
     st.write("Reply: ", response['output_text'])
+
+    put_metric('User queries answered', 1)
 
 def _get_session():
     from streamlit.runtime import get_instance
