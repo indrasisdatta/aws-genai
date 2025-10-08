@@ -1,4 +1,5 @@
 
+from urllib.request import urlopen
 from dotenv import load_dotenv
 import os 
 from langchain_google_genai import ChatGoogleGenerativeAI
@@ -8,7 +9,9 @@ from PyPDF2 import PdfReader
 import json 
 import boto3
 import botocore
+from boto3.dynamodb.conditions import Attr
 import re
+import time 
 
 load_dotenv()
 
@@ -54,7 +57,7 @@ def extract_resume_text(file):
     - Keywords missing'''
 
 # Analyze resume based on Job description and extracted Resume text
-def analyze_resume(job_description, resume_text, session_id):
+def analyze_resume(job_description, resume_text, session_id, ip):
     template_str = """You are an experienced HR with technical expertise in Web Development (Frontend + Backend), 
     Artificial Intelligence, Machine Learning, Data Science, DevOps, and Cloud.
     Compare the following job description and candidate resume. 
@@ -83,9 +86,24 @@ def analyze_resume(job_description, resume_text, session_id):
 
     if json_data is not None:
         json_data['session_id'] = session_id
+        json_data['ip_address'] = ip
+        json_data['job_description'] = job_description
         save_dynamodb_data(json_data)
     
     return json_data
+
+def get_dynamodb_data(ip):
+    try:
+        session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+        dynamodb = session.resource('dynamodb', region_name='ap-south-1')
+        table = dynamodb.Table('ResumeAnalysis')
+        response = table.scan(
+            FilterExpression=Attr('ip_address').eq(ip)
+        )
+        return response
+    except botocore.exceptions.ClientError as e:
+        print(e)
+        return None
 
 def save_dynamodb_data(json_data):
     if json_data is not None:
@@ -99,15 +117,28 @@ def save_dynamodb_data(json_data):
             print(e)
             return None
         
-def upload_to_s3(uploaded_file, session_id):
+def upload_to_s3(uploaded_file, session_id, ip):
     bucket_name = os.getenv('AWS_S3_UPLOAD_BUCKET')
     session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
     s3 = session.client('s3')
+    ts = time.time()
 
     try:
-        s3_key = f"ats_pdf/{session_id}.pdf"
-        s3.upload_fileobj(uploaded_file, bucket_name, s3_key)
+        s3_key = f"ats_pdf/{ip}/{session_id}_{ts}.pdf"
+        s3.upload_fileobj(
+            uploaded_file, 
+            bucket_name, 
+            s3_key, 
+            {'ContentType': 'application/pdf' }
+        )
         return True
     except botocore.exceptions.ClientError as e:
         print(e)
         return False   
+    
+
+def getIPAddress():
+    d = str(urlopen('http://checkip.dyndns.com/')
+            .read())
+
+    return re.compile(r'Address: (\d+\.\d+\.\d+\.\d+)').search(d).group(1)
