@@ -20,3 +20,28 @@ Fix: Update policy:
 SSH command to connect to AWS instance:
 ssh -i idatta.pub ec2-user@ec2-13-203-200-245.ap-south-1.compute.amazonaws.com
 
+Create Lambda layer for common dependencies 
+mkdir -p layer/python
+pip install -r requirements.txt -t layer/python
+zip -r my_layer.zip python
+
+Allow API Gateway -> Lambda invocation via lambda:add-permission.
+AWS console (Create Authorizer)
+Then connect API Gateway resource/method -> Lambda in console.
+
+SAM - test API Gateway, Lambda locally
+
+Multi PDF Chat app (RAG) - convert to REST APIs:
+ - S3: Store uploaded PDF 
+ - Lambda function 1 for file upload and store FAISS embeddings in S3
+ - Lambda function 2 to load FAISS embeddings, run langChain retrieval and call LLM API (HuggingFace, Gemini etc)
+ - API Gateway - route requests to the correct lambda 
+ - (Optional) DynamoDB - store metadata like userId, fileName, embeddingLocation 
+
+
+DynamoDB:
+
+aws dynamodb list-tables --region ap-south-1 --profile developer_role
+aws dynamodb scan --table-name ResumeAnalysis --region ap-south-1 --profile developer_role
+
+Use SCAN to search on non-indexed fields as QUERY can be used to search only indexed fields (parition key and Global secondary index)
