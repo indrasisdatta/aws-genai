@@ -1,0 +1,29 @@
+version: 0.2
+
+env:
+  parameter-store:
+    SSH_KEY: "EC2_SSH_KEY"
+
+phases:
+  pre_build:
+    commands:
+      - echo Logging in to Amazon ECR...
+      - aws --version
+
+  build:
+    commands:
+      - echo Building Docker Image...
+      - docker build -t aws-genai .
+
+  post_build:
+    commands:
+      - echo Deploying to EC2...
+      - echo "$SSH_KEY" > private_key.pem
+      - chmod 600 private_key.pem
+      - ssh -o StrictHostKeyChecking=no -i private_key.pem ec2-user@ec2-13-232-118-1.ap-south-1.compute.amazonaws.com "
+          cd /aws-genai &&
+          git pull &&
+          docker stop aws-genai-server || true && 
+          docker system prune -a -f --volumes && 
+          docker-compose build --progress=plain &&
+          docker-compose up -d"

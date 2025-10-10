@@ -29,12 +29,12 @@ RUN chown -R appuser:appuser /app
 # Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
 # Leverage a bind mount to requirements.txt to avoid having to copy them into
 # into this layer.
-# COPY requirements.txt .
-# RUN apt-get update && apt-get install -y gcc python3-dev build-essential && \
-#     pip install --upgrade pip && \
-#     pip install --no-cache-dir -r requirements.txt
+COPY requirements.txt .
+RUN apt-get update && apt-get install -y gcc python3-dev build-essential && \
+    pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# RUN rm -rf /root/.cache/pip
+RUN rm -rf /root/.cache/pip
 
 # RUN --mount=type=cache,target=/root/.cache/pip \
 #     --mount=type=bind,source=requirements.txt,target=requirements.txt \
