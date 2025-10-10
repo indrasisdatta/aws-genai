@@ -1,3 +1,22 @@
-.venv/
-venv/
+# Environments
 .env
+.envrc
+myvenv/
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+# Byte-compiled 
+**.zip
+**/python
+**/__pycache__/
+*.py[codz]
+*$py.class
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+*.log

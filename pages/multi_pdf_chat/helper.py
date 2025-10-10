@@ -7,7 +7,8 @@ from langchain.prompts import PromptTemplate
 from langchain.chains.question_answering import load_qa_chain
 from langchain_groq import ChatGroq
 import streamlit as st
-import boto3 
+# import boto3 
+from aws_utils import boto3
 from botocore.exceptions import ClientError
 import os
 import mimetypes
@@ -15,29 +16,31 @@ import tempfile
 import logging
 import watchtower 
 import os 
+from urllib.request import urlopen
+import re as r
 
 # CloudWatch Log initialize
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
-session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'), region_name="ap-south-1")
-client = session.client('logs')
+# session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'), region_name="ap-south-1")
+# client = session.client('logs')
 
-cloudwatch_handler = watchtower.CloudWatchLogHandler(
-    boto3_client=client,
-    log_group="Py-test",
-    stream_name="test"
-)
-logger.addHandler(cloudwatch_handler)
+# cloudwatch_handler = watchtower.CloudWatchLogHandler(
+#     boto3_client=client,
+#     log_group="Py-test",
+#     stream_name="test"
+# )
+# logger.addHandler(cloudwatch_handler)
 
-logger.info("Test log message")
+# logger.info("Test log message")
 
 # Save CloudWatch metrics
 def put_metric(name, value, unit="Count"):
     # cloudwatch = boto3.client("cloudwatch")
 
-    session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'), region_name="ap-south-1")
-    cloudwatch = session.client('cloudwatch')
+    # session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'), region_name="ap-south-1")
+    cloudwatch = boto3.client('cloudwatch')
 
     cloudwatch.put_metric_data(
         Namespace="MultiPDFChatApp",
@@ -116,20 +119,20 @@ def user_input(user_question, session_id):
 
     put_metric('User queries answered', 1)
 
-def _get_session():
-    from streamlit.runtime import get_instance
-    from streamlit.runtime.scriptrunner import get_script_run_ctx
-    runtime = get_instance()
-    session_id = get_script_run_ctx().session_id
-    session_info = runtime._session_mgr.get_session_info(session_id)
-    if session_info is None:
-        raise RuntimeError("Couldn't get your Streamlit Session object.")
-    return session_info.session
+# def _get_session():
+#     from streamlit.runtime import get_instance
+#     from streamlit.runtime.scriptrunner import get_script_run_ctx
+#     runtime = get_instance()
+#     session_id = get_script_run_ctx().session_id
+#     session_info = runtime._session_mgr.get_session_info(session_id)
+#     if session_info is None:
+#         raise RuntimeError("Couldn't get your Streamlit Session object.")
+#     return session_info.session
 
 def upload_faiss_to_s3(folder):
-    bucket_name = os.getenv('AWS_S3_UPLOAD_BUCKET')
-    session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
-    s3 = session.client('s3')
+    bucket_name = os.getenv('MY_AWS_S3_BUCKET')
+    # session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+    s3 = boto3.client('s3')
 
     try:
         for filename in os.listdir(folder):
@@ -142,9 +145,9 @@ def upload_faiss_to_s3(folder):
     return True
 
 def download_faiss_from_s3(folder):
-    bucket_name = os.getenv('AWS_S3_UPLOAD_BUCKET')
-    session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
-    s3 = session.client('s3')
+    bucket_name = os.getenv('MY_AWS_S3_BUCKET')
+    # session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+    s3 = boto3.client('s3')
     tmp_dir = tempfile.mkdtemp()
 
     for filename in ["index.faiss", "index.pkl"]:
@@ -154,3 +157,10 @@ def download_faiss_from_s3(folder):
         s3.download_file(bucket_name, s3_key, local_path)
 
     return os.path.join(folder, tmp_dir)
+
+
+def getIPAddress():
+    d = str(urlopen('http://checkip.dyndns.com/')
+            .read())
+
+    return r.compile(r'Address: (\d+\.\d+\.\d+\.\d+)').search(d).group(1)

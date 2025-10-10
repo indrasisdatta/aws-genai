@@ -1,5 +1,12 @@
+from dotenv import load_dotenv
+load_dotenv()
+
 import streamlit as st 
 import importlib
+from aws_utils import load_ssm_params
+
+# Load SSM params into env, so that os.getenv orks
+load_ssm_params(['GOOGLE_API_KEY', 'GROQ_API_KEY', 'HUGGINGFACE_TOKEN', 'MY_AWS_S3_BUCKET'])
 
 st.set_page_config(page_title="Gen AI Apps", page_icon="🚀")
 

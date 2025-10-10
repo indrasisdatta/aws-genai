@@ -1,21 +1,19 @@
 
 from urllib.request import urlopen
-from dotenv import load_dotenv
+# from dotenv import load_dotenv
 import os 
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 from PyPDF2 import PdfReader
 import json 
-import boto3
+# import boto3
 import botocore
 from boto3.dynamodb.conditions import Attr
 import re
 import time 
 
-load_dotenv()
-
-os.environ['GOOGLE_API_KEY'] = os.getenv('GOOGLE_API_KEY')
+# load_dotenv()
 
 llm = ChatGoogleGenerativeAI(
     model="gemini-2.5-flash",
@@ -94,8 +92,8 @@ def analyze_resume(job_description, resume_text, session_id, ip):
 
 def get_dynamodb_data(ip):
     try:
-        session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
-        dynamodb = session.resource('dynamodb', region_name='ap-south-1')
+        # session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+        dynamodb = boto3.resource('dynamodb')
         table = dynamodb.Table('ResumeAnalysis')
         response = table.scan(
             FilterExpression=Attr('ip_address').eq(ip)
@@ -108,8 +106,8 @@ def get_dynamodb_data(ip):
 def save_dynamodb_data(json_data):
     if json_data is not None:
         try:
-            session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
-            dynamodb = session.resource('dynamodb', region_name="ap-south-1")
+            # session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+            dynamodb = boto3.resource('dynamodb')
             table = dynamodb.Table('ResumeAnalysis')
             table.put_item(Item=json_data)
             return True
@@ -118,9 +116,9 @@ def save_dynamodb_data(json_data):
             return None
         
 def upload_to_s3(uploaded_file, session_id, ip):
-    bucket_name = os.getenv('AWS_S3_UPLOAD_BUCKET')
-    session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
-    s3 = session.client('s3')
+    bucket_name = os.getenv('MY_AWS_S3_BUCKET')
+    # session = boto3.Session(profile_name=os.getenv('AWS_PROFILE'))
+    s3 = boto3.client('s3')
     ts = time.time()
 
     try:

@@ -3,7 +3,7 @@ from langchain_google_genai import GoogleGenerativeAIEmbeddings
 from PyPDF2 import PdfReader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 import google.generativeai as genai
-from pages.multi_pdf_chat.helper import generate_embedding, get_pdf_texts, get_text_chunks, user_input, _get_session
+from pages.multi_pdf_chat.helper import generate_embedding, get_pdf_texts, get_text_chunks, user_input, getIPAddress, _get_session
 
 from dotenv import load_dotenv
 import streamlit as st

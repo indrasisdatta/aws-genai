@@ -12,7 +12,7 @@ print('SSM params:', params)
 
 def lambda_handler(event, context):
     print(event)
-    param = ssm.get_parameter('AWS_S3_UPLOAD_BUCKET')
+    param = ssm.get_parameter('MY_AWS_S3_BUCKET')
     print('SSM param:', param)
 
 
